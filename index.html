@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Game Library // Build Log</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg: #0a0908;
+    --bg-raised: #14110d;
+    --amber: #ffb000;
+    --amber-dim: #7a5230;
+    --amber-glow: rgba(255,176,0,0.35);
+    --ink: #e8dcc8;
+    --ink-dim: #8a8175;
+    --alert: #ff3b30;
+    --line: #2a241c;
+  }
+
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* scanline + vignette overlay, signature element */
+  .crt-overlay{
+    pointer-events:none;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        rgba(255,255,255,0.025) 0px,
+        rgba(255,255,255,0.025) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+    mix-blend-mode: overlay;
+  }
+  .vignette{
+    pointer-events:none;
+    position: fixed;
+    inset:0;
+    z-index: 49;
+    box-shadow: inset 0 0 180px rgba(0,0,0,0.75);
+  }
+
+  a{ color: var(--amber); }
+
+  .wrap{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ---------- HERO / BOOT SEQUENCE ---------- */
+  header.hero{
+    min-height: 92vh;
+    display:flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+
+  .boot-line{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--amber-dim);
+    letter-spacing: 0.02em;
+  }
+  .boot-line span.ok{ color: var(--amber); }
+
+  .hero-title{
+    font-family: 'Space Mono', monospace;
+    font-weight: 700;
+    font-size: clamp(2.6rem, 8vw, 5.2rem);
+    line-height: 1.02;
+    color: var(--ink);
+    margin: 22px 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .hero-title .blink-cursor{
+    display:inline-block;
+    width: 0.5em;
+    background: var(--amber);
+    margin-left: 6px;
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink{ 50%{ opacity: 0; } }
+
+  .hero-sub{
+    font-family: 'Inter', sans-serif;
+    font-size: 1.05rem;
+    color: var(--ink-dim);
+    max-width: 560px;
+    margin-top: 6px;
+  }
+
+  .hero-meta{
+    margin-top: 40px;
+    display:flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .hero-meta strong{
+    display:block;
+    color: var(--amber);
+    font-size: 20px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* ---------- SECTION LABEL ---------- */
+  .section-label{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--amber-dim);
+    margin: 90px 0 18px;
+    display:flex;
+    align-items:center;
+    gap: 12px;
+  }
+  .section-label::after{
+    content:"";
+    flex:1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ---------- DOWNLOADS PANEL ---------- */
+  .downloads-panel{
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+  }
+  .dl-row{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-row:last-of-type{ border-bottom: none; }
+  .dl-info{ display:flex; flex-direction:column; gap: 4px; }
+  .dl-name{
+    font-family: 'Space Mono', monospace;
+    font-size: 1.05rem;
+    color: var(--ink);
+  }
+  .dl-meta{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .dl-btn{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    text-decoration: none;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 10px 16px;
+    white-space: nowrap;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .dl-btn:hover{ background: var(--amber); color: #0a0908; }
+  .dl-note{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    padding: 14px 20px;
+    margin: 0;
+  }
+  @media (max-width: 500px){
+    .dl-row{ flex-direction: column; align-items: flex-start; }
+    .dl-btn{ width: 100%; text-align:center; }
+  }
+
+  .dl-note code{
+    background: #1c1712;
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    color: var(--amber);
+    font-size: 11px;
+  }
+  .dl-empty, .dl-error{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    padding: 16px 20px;
+  }
+  .dl-error{ color: var(--alert); }
+
+  /* ---------- GAME ENTRIES (patch-note / build style) ---------- */
+  .game-entry{
+    border: 1px solid var(--line);
+    background: var(--bg-raised);
+    margin-bottom: 28px;
+    position: relative;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .game-entry:hover{
+    border-color: var(--amber-dim);
+    box-shadow: 0 0 0 1px var(--amber-dim), 0 0 40px -10px var(--amber-glow);
+  }
+
+  .entry-titlebar{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+  }
+  .entry-titlebar .tag{
+    color: var(--amber);
+    letter-spacing: 0.05em;
+  }
+  .status-dot{
+    width: 7px; height:7px;
+    border-radius: 50%;
+    display:inline-block;
+    margin-right: 6px;
+    background: var(--amber);
+    box-shadow: 0 0 6px var(--amber);
+  }
+  .status-dot.live{ background: var(--alert); box-shadow: 0 0 6px var(--alert); }
+
+  .entry-body{
+    display:grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 0;
+  }
+  @media (max-width: 760px){
+    .entry-body{ grid-template-columns: 1fr; }
+  }
+
+  .entry-media{
+    display:flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px;
+  }
+
+  .placeholder-box{
+    background:
+      repeating-linear-gradient(45deg, #171310, #171310 10px, #1c1712 10px, #1c1712 20px);
+    border: 1px dashed var(--amber-dim);
+    color: var(--ink-dim);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    min-height: 130px;
+    flex: 1;
+  }
+  .media-row{ display:flex; gap: 8px; }
+  .media-row .placeholder-box{ min-height: 70px; }
+  .placeholder-box.large{ min-height: 200px; }
+
+  .entry-info{
+    padding: 22px 24px;
+    display:flex;
+    flex-direction: column;
+  }
+
+  .entry-name{
+    font-family: 'Space Mono', monospace;
+    font-size: 1.5rem;
+    color: var(--ink);
+    margin: 0 0 6px;
+  }
+
+  .entry-genre{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--amber);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+
+  .entry-desc{
+    color: var(--ink-dim);
+    font-size: 0.94rem;
+    margin-bottom: 18px;
+  }
+
+  .changelog{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    border-top: 1px dashed var(--line);
+    padding-top: 12px;
+    margin-top: auto;
+  }
+  .changelog li{ margin-bottom: 5px; list-style: none; padding-left: 16px; position: relative; }
+  .changelog li::before{
+    content: "›";
+    position:absolute;
+    left:0;
+    color: var(--amber-dim);
+  }
+
+  .entry-links{
+    margin-top: 18px;
+    display:flex;
+    gap: 14px;
+  }
+  .entry-links a{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-decoration: none;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    padding: 8px 14px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .entry-links a:hover{
+    background: var(--amber);
+    color: #0a0908;
+  }
+
+  /* ---------- FOOTER ---------- */
+  footer{
+    margin-top: 100px;
+    padding: 40px 0 60px;
+    border-top: 1px solid var(--line);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    display:flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer a{ text-decoration:none; }
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    .blink-cursor{ animation: none; opacity: 1; }
+    html{ scroll-behavior: auto; }
+  }
+
+  /* keyboard focus visibility */
+  a:focus-visible, button:focus-visible{
+    outline: 2px solid var(--amber);
+    outline-offset: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="crt-overlay"></div>
+<div class="vignette"></div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <div class="boot-line">&gt; mounting /dev/game_library <span class="ok">[OK]</span></div>
+    <div class="boot-line">&gt; loading title cards ... <span class="ok">5 found</span></div>
+    <h1 class="hero-title">GAME<br>LIBRARY<span class="blink-cursor">&nbsp;</span></h1>
+    <p class="hero-sub">A running build log of the games I've made — what shipped, what's in progress, and what changed in the last patch.</p>
+    <div class="hero-meta">
+      <div><strong>5</strong>Titles</div>
+      <div><strong>02</strong>In Development</div>
+      <div><strong>2024–26</strong>Active Range</div>
+    </div>
+  </header>
+
+  <div class="section-label">Downloads</div>
+
+  <section class="downloads-panel" id="downloads-panel">
+    <div id="apk-list">
+      <p class="dl-note">Loading APKs…</p>
+    </div>
+    <p class="dl-note">Drop a new .apk file into the <code>/apks</code> folder in your repo and it'll show up here automatically after you push. Enable "install from unknown sources" in your Android settings to install APKs downloaded outside the Play Store.</p>
+  </section>
+
+  <div class="section-label">Build Log</div>
+
+  <!-- GAME 1 -->
+  <section class="game-entry">
+    <div class="entry-titlebar">
+      <span><span class="status-dot"></span><span class="tag">v1.2.0</span> — released</span>
+      <span>build/echo-chamber</span>
+    </div>
+    <div class="entry-body">
+      <div class="entry-media">
+        <div class="placeholder-box large">Add cover screenshot</div>
+        <div class="media-row">
+          <div class="placeholder-box">Screenshot</div>
+          <div class="placeholder-box">Gameplay clip</div>
+        </div>
+      </div>
+      <div class="entry-info">
+        <h2 class="entry-name">Echo Chamber</h2>
+        <div class="entry-genre">Puzzle · Sound-based · Singleplayer</div>
+        <p class="entry-desc">Placeholder description — swap in your own. A short, punchy line about what the game is and why someone should care: the hook, the feeling, the one thing that makes it yours.</p>
+        <ul class="changelog">
+          <li>Added new chapter: The Hollow</li>
+          <li>Fixed audio desync on level 7</li>
+          <li>Rebalanced difficulty curve</li>
+        </ul>
+        <div class="entry-links">
+          <a href="#">Play / Download</a>
+          <a href="#">APK</a>
+          <a href="#">Devlog</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME 2 -->
+  <section class="game-entry">
+    <div class="entry-titlebar">
+      <span><span class="status-dot"></span><span class="tag">v3.0.1</span> — released</span>
+      <span>build/ironvale</span>
+    </div>
+    <div class="entry-body">
+      <div class="entry-media">
+        <div class="placeholder-box large">Add cover screenshot</div>
+        <div class="media-row">
+          <div class="placeholder-box">Screenshot</div>
+          <div class="placeholder-box">Trailer</div>
+        </div>
+      </div>
+      <div class="entry-info">
+        <h2 class="entry-name">Ironvale</h2>
+        <div class="entry-genre">Tactics · Roguelite · Co-op</div>
+        <p class="entry-desc">Placeholder description — swap in your own. Mention the platform, the core loop, and a moment players remember after they close the game.</p>
+        <ul class="changelog">
+          <li>New class: The Warden</li>
+          <li>Co-op drop-in/drop-out support</li>
+          <li>Performance pass on large battles</li>
+        </ul>
+        <div class="entry-links">
+          <a href="#">Play / Download</a>
+          <a href="#">APK</a>
+          <a href="#">Devlog</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME 3 -->
+  <section class="game-entry">
+    <div class="entry-titlebar">
+      <span><span class="status-dot live"></span><span class="tag">v0.4.0</span> — in development</span>
+      <span>build/nightbloom</span>
+    </div>
+    <div class="entry-body">
+      <div class="entry-media">
+        <div class="placeholder-box large">Add cover screenshot</div>
+        <div class="media-row">
+          <div class="placeholder-box">Concept art</div>
+          <div class="placeholder-box">Prototype clip</div>
+        </div>
+      </div>
+      <div class="entry-info">
+        <h2 class="entry-name">Nightbloom</h2>
+        <div class="entry-genre">Atmospheric · Exploration</div>
+        <p class="entry-desc">Placeholder description — swap in your own. Early build, so this is a good place to talk about the vision and what's coming in future patches.</p>
+        <ul class="changelog">
+          <li>First playable build of Act I</li>
+          <li>Lighting system overhaul</li>
+          <li>Prototype for the bloom mechanic</li>
+        </ul>
+        <div class="entry-links">
+          <a href="#">Wishlist</a>
+          <a href="#">APK (beta)</a>
+          <a href="#">Devlog</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME 4 -->
+  <section class="game-entry">
+    <div class="entry-titlebar">
+      <span><span class="status-dot"></span><span class="tag">v1.0.0</span> — released</span>
+      <span>build/rustsignal</span>
+    </div>
+    <div class="entry-body">
+      <div class="entry-media">
+        <div class="placeholder-box large">Add cover screenshot</div>
+        <div class="media-row">
+          <div class="placeholder-box">Screenshot</div>
+          <div class="placeholder-box">Gameplay clip</div>
+        </div>
+      </div>
+      <div class="entry-info">
+        <h2 class="entry-name">Rustsignal</h2>
+        <div class="entry-genre">Survival · Radio Horror · Singleplayer</div>
+        <p class="entry-desc">Placeholder description — swap in your own. A short, punchy line about what the game is and why someone should care.</p>
+        <ul class="changelog">
+          <li>Initial public release</li>
+          <li>Added dynamic weather system</li>
+          <li>New ending: The Static</li>
+        </ul>
+        <div class="entry-links">
+          <a href="#">Play / Download</a>
+          <a href="#">APK</a>
+          <a href="#">Devlog</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME 5 -->
+  <section class="game-entry">
+    <div class="entry-titlebar">
+      <span><span class="status-dot"></span><span class="tag">v0.8.2</span> — early access</span>
+      <span>build/static-bloom</span>
+    </div>
+    <div class="entry-body">
+      <div class="entry-media">
+        <div class="placeholder-box large">Add cover screenshot</div>
+        <div class="media-row">
+          <div class="placeholder-box">Screenshot</div>
+          <div class="placeholder-box">Trailer</div>
+        </div>
+      </div>
+      <div class="entry-info">
+        <h2 class="entry-name">Static Bloom</h2>
+        <div class="entry-genre">Rhythm · Arcade · Local Multiplayer</div>
+        <p class="entry-desc">Placeholder description — swap in your own. Mention the platform, the core loop, and what makes multiplayer sessions memorable.</p>
+        <ul class="changelog">
+          <li>Added 4-player local mode</li>
+          <li>New track pack: Neon Static</li>
+          <li>Controller remapping support</li>
+        </ul>
+        <div class="entry-links">
+          <a href="#">Play / Download</a>
+          <a href="#">APK</a>
+          <a href="#">Devlog</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>&copy; 2026 — Game Library</span>
+    <span><a href="#">itch.io</a> · <a href="#">Twitter/X</a> · <a href="#">Email</a></span>
+  </footer>
+
+</div>
+
+<script>
+(async function loadApks(){
+  const listEl = document.getElementById('apk-list');
+
+  // Auto-detect owner/repo for a GitHub user/org Pages site (username.github.io)
+  // If you ever move to a custom domain, hardcode these two lines instead:
+  const owner = location.hostname.split('.')[0];
+  const repo = `${owner}.github.io`;
+  const folder = 'apks';
+
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${folder}`;
+
+  try {
+    const res = await fetch(apiUrl);
+    if (!res.ok) {
+      if (res.status === 404) {
+        listEl.innerHTML = `<p class="dl-empty">No /apks folder found yet. Create one in your repo and drop your first .apk in.</p>`;
+      } else {
+        listEl.innerHTML = `<p class="dl-error">Couldn't load APK list (GitHub API error ${res.status}). If you're testing locally, this won't work until it's live on GitHub Pages.</p>`;
+      }
+      return;
+    }
+
+    const files = await res.json();
+    const apks = (Array.isArray(files) ? files : [])
+      .filter(f => f.type === 'file' && f.name.toLowerCase().endsWith('.apk'))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    if (apks.length === 0) {
+      listEl.innerHTML = `<p class="dl-empty">No APKs in /apks yet. Drop a .apk file in there and push — it'll show up here.</p>`;
+      return;
+    }
+
+    listEl.innerHTML = apks.map(f => {
+      const sizeMB = (f.size / (1024 * 1024)).toFixed(1);
+      const niceName = f.name.replace(/\.apk$/i, '').replace(/[-_]/g, ' ');
+      return `
+        <div class="dl-row">
+          <div class="dl-info">
+            <span class="dl-name">${escapeHtml(niceName)}</span>
+            <span class="dl-meta">Android · ${sizeMB} MB</span>
+          </div>
+          <a class="dl-btn" href="${f.download_url}" download>⬇ Download APK</a>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    listEl.innerHTML = `<p class="dl-error">Couldn't reach GitHub to load APKs. Check your connection and refresh.</p>`;
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+})();
+</script>
+
+</body>
+</html>
